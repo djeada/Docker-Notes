@@ -1,59 +1,61 @@
 #!/usr/bin/env python3
+"""Pull image references used by running containers.
 
-'''
-Usage:
+Pulling an image does not update an existing container, and restarting it does
+not apply the new image. Recreate services from their original configuration
+(for Compose projects: docker compose pull && docker compose up -d).
+"""
 
-To check for image updates and pull the new versions without restarting the containers:
-
-python3 docker_image_updater.py
-
-To also restart the containers after pulling the updated image:
-
-python3 docker_image_updater.py --restart
-'''
-
-import subprocess
 import argparse
+import subprocess
+import sys
+
 
 def get_running_containers():
-    """Get a list of IDs of all running containers."""
-    cmd = ["docker", "ps", "-q"]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    container_ids = result.stdout.strip().split("\n")
-    return container_ids
+    result = subprocess.run(["docker", "ps", "-q"], capture_output=True, text=True, check=True)
+    return result.stdout.split()
+
 
 def get_container_image(container_id):
-    """Get the image name of the specified container."""
-    cmd = ["docker", "inspect", "--format", "{{.Config.Image}}", container_id]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    return result.stdout.strip()
+    result = subprocess.run(
+        ["docker", "inspect", "--format", "{{.Config.Image}}", container_id],
+        capture_output=True, text=True, check=True,
+    )
+    image = result.stdout.strip()
+    if not image:
+        raise ValueError(f"No image reference found for container {container_id}.")
+    return image
+
 
 def pull_image(image_name):
-    """Pull the latest version of the specified image."""
-    cmd = ["docker", "pull", image_name]
-    subprocess.run(cmd)
+    subprocess.run(["docker", "pull", image_name], check=True)
 
-def restart_container(container_id):
-    """Restart the specified container."""
-    cmd = ["docker", "restart", container_id]
-    subprocess.run(cmd)
 
-def main(args):
-    containers = get_running_containers()
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--restart", action="store_true",
+                        help="Unsupported: restarting does not apply image updates.")
+    args = parser.parse_args(argv)
+    if args.restart:
+        parser.error("--restart cannot apply image updates. Recreate containers from their configuration.")
+    try:
+        images = dict.fromkeys(get_container_image(cid) for cid in get_running_containers())
+        if not images:
+            print("No running containers.")
+        for image in images:
+            if image.startswith("sha256:"):
+                print(f"Skipping local image ID {image}; rebuild it from its source.")
+                continue
+            print(f"Pulling image: {image}")
+            pull_image(image)
+        if images:
+            print("Existing containers keep their original image. Recreate them to apply updates.")
+    except (OSError, subprocess.CalledProcessError, ValueError) as exc:
+        print(f"Unable to pull container images: {exc}", file=sys.stderr)
+        return 1
+    return 0
 
-    for container in containers:
-        image = get_container_image(container)
-        print(f"Checking updates for image: {image} used by container: {container}")
-        pull_image(image)
-
-        if args.restart:
-            print(f"Restarting container: {container}")
-            restart_container(container)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Docker Image Updater")
-    parser.add_argument("--restart", action="store_true",
-                        help="Restart containers if an updated image is pulled")
-    args = parser.parse_args()
-    
-    main(args)
+    sys.exit(main())

@@ -1,70 +1,125 @@
 #!/usr/bin/env python3
+"""Generate Compose files; start each service with --service-name.
 
-'''
-Usage:
-
-The script uses command-line arguments to take in services, networks, and volumes and then creates a docker-compose.yml file. Here's how you would use the script to define two services (a web server and a database) and a network:
-
-python3 docker_compose_generator.py \
-    --networks webnet \
-    --service-name webapp --service-image nginx --service-ports 80:80 --service-volumes /webroot:/var/www \
-    --service-name db --service-image mysql:5.7 --service-ports 3306:3306 --service-env MYSQL_ROOT_PASSWORD:secret
-
-This will generate a docker-compose.yml file with a web server and database, a network named webnet, and some specified volumes and environment variables.
-'''
+Example (run from the repository root):
+    python3 scripts/docker_compose_generator.py --networks webnet --volumes dbdata \
+        --service-name web --service-image nginx:stable --service-ports 127.0.0.1:8080:80 \
+        --service-name db --service-image mysql:8.4 \
+        --service-volumes dbdata:/var/lib/mysql --service-env MYSQL_ROOT_PASSWORD:local-demo
+"""
 
 import argparse
+from pathlib import Path
+import re
+
 import yaml
 
+
+NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
+
+
+def split_items(value):
+    items = [item.strip() for item in value.split(",")]
+    if not all(items):
+        raise ValueError("Comma-separated values must not contain empty entries.")
+    return items
+
+
+class ServiceOption(argparse.Action):
+    """Attach options to the most recent --service-name, preserving CLI order."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        services = getattr(namespace, self.dest, None)
+        if services is None:
+            services = []
+            setattr(namespace, self.dest, services)
+        field = option_string.removeprefix("--service-")
+        if field == "name":
+            services.append({"name": values})
+        elif not services:
+            parser.error(f"{option_string} must follow --service-name.")
+        elif field in services[-1]:
+            parser.error(f"{option_string} was repeated for the same service.")
+        else:
+            services[-1][field] = values
+
+
 def create_service(service):
-    """Parse service input and return a dictionary representation."""
-    service_data = {
-        'image': service['image'],
-    }
-    if 'ports' in service:
-        service_data['ports'] = service['ports'].split(',')
-    if 'volumes' in service:
-        service_data['volumes'] = service['volumes'].split(',')
-    if 'env' in service:
-        service_data['environment'] = {}
-        for env_pair in service['env'].split(','):
-            key, value = env_pair.split(':')
-            service_data['environment'][key] = value
-    return service_data
+    if not service.get("image", "").strip():
+        raise ValueError(f"Service {service['name']!r} requires --service-image.")
+    result = {"image": service["image"]}
+    for field in ("ports", "volumes"):
+        if field in service:
+            result[field] = split_items(service[field])
+    if "env" in service:
+        environment = {}
+        for pair in split_items(service["env"]):
+            key, separator, value = pair.partition(":")
+            if not separator or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key):
+                raise ValueError("Environment entries must use KEY:VALUE.")
+            if key in environment:
+                raise ValueError(f"Duplicate environment key: {key}")
+            environment[key] = value
+        result["environment"] = environment
+    return result
 
-def main(args):
-    """Generate a docker-compose.yml file."""
-    compose_data = {
-        'version': '3.8',
-        'services': {},
-        'networks': args.networks.split(',') if args.networks else None,
-        'volumes': args.volumes.split(',') if args.volumes else None
-    }
 
+def build_compose(args):
+    if not args.services:
+        raise ValueError("At least one --service-name and --service-image are required.")
+    networks = split_items(args.networks) if args.networks else []
+    volumes = split_items(args.volumes) if args.volumes else []
+    for name in networks + volumes:
+        if not NAME.fullmatch(name):
+            raise ValueError(f"Invalid network or volume name: {name!r}")
+
+    compose = {"services": {}}
     for service in args.services:
-        service_name = service['name']
-        compose_data['services'][service_name] = create_service(service)
+        name = service["name"]
+        if not NAME.fullmatch(name):
+            raise ValueError(f"Invalid service name: {name!r}")
+        if name in compose["services"]:
+            raise ValueError(f"Duplicate service name: {name!r}")
+        data = create_service(service)
+        if networks:
+            data["networks"] = networks.copy()
+        # Named mounts need declarations; absolute and relative bind paths do not.
+        for mount in data.get("volumes", []):
+            source, separator, _ = mount.partition(":")
+            windows_bind = re.match(r"^[A-Za-z]:[\\/]", mount)
+            if separator and not windows_bind and NAME.fullmatch(source) and source not in volumes:
+                volumes.append(source)
+        compose["services"][name] = data
+    if networks:
+        compose["networks"] = {name: {} for name in networks}
+    if volumes:
+        compose["volumes"] = {name: {} for name in volumes}
+    return compose
 
-    with open('docker-compose.yml', 'w') as file:
-        yaml.dump(compose_data, file, default_flow_style=False)
+
+def make_parser():
+    parser = argparse.ArgumentParser(description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--networks", help="Comma-separated networks attached to every service.")
+    parser.add_argument("--volumes", help="Comma-separated named volume declarations.")
+    parser.add_argument("--output", type=Path, default=Path("docker-compose.yml"))
+    parser.add_argument("--force", action="store_true", help="Replace an existing output file.")
+    for field in ("name", "image", "ports", "volumes", "env"):
+        parser.add_argument(f"--service-{field}", dest="services", action=ServiceOption)
+    return parser
+
+
+def main(argv=None):
+    parser = make_parser()
+    args = parser.parse_args(argv)
+    try:
+        compose = build_compose(args)
+        with args.output.open("w" if args.force else "x", encoding="utf-8") as output:
+            yaml.safe_dump(compose, output, sort_keys=False)
+    except (ValueError, OSError) as exc:
+        parser.error(str(exc))
+    print(f"Wrote {args.output}. Validate with: docker compose -f {args.output} config --quiet")
+
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Docker Compose Generator")
-    
-    parser.add_argument("--networks", type=str, help="Comma-separated list of networks. Example: network1,network2")
-    parser.add_argument("--volumes", type=str, help="Comma-separated list of volumes. Example: volume1,volume2")
-    
-    service_parser = parser.add_argument_group("services")
-    service_parser.add_argument("--service-name", dest="services", action="append", type=lambda kv: kv.split("="), metavar="name=VALUE",
-                                help="The name of the service. Example: --service-name webapp")
-    service_parser.add_argument("--service-image", dest="services", action="append", type=lambda kv: kv.split("="), metavar="image=VALUE",
-                                help="The image for the service. Example: --service-image nginx")
-    service_parser.add_argument("--service-ports", dest="services", action="append", type=lambda kv: kv.split("="), metavar="ports=VALUE",
-                                help="Comma-separated ports for the service. Example: --service-ports 80:80,443:443")
-    service_parser.add_argument("--service-volumes", dest="services", action="append", type=lambda kv: kv.split("="), metavar="volumes=VALUE",
-                                help="Comma-separated volumes for the service. Example: --service-volumes /host:/container")
-    service_parser.add_argument("--service-env", dest="services", action="append", type=lambda kv: kv.split("="), metavar="env=VALUE",
-                                help="Comma-separated environment variables for the service. Example: --service-env KEY1:VAL1,KEY2:VAL2")
-
-    args = parser.parse_args()
-    main(args)
+    main()

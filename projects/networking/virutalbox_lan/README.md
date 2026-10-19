@@ -4,7 +4,16 @@ When you're running Docker within a VirtualBox VM and want to expose a Docker co
 
 ### Set up a Docker Container in VirtualBox
 
-Assuming you already have a Docker container running within a VirtualBox VM, take note of the port on which the service inside the container is running. For example, if you're running a web service in Docker, it might be exposed on port 80 or 8080 inside the VM.
+Publish the service on the VM's network interface. For example, run this inside
+the VM to map VM port 8080 to container port 80:
+
+```bash
+docker run -d --name lan-web -p 8080:80 nginx:stable-alpine
+```
+
+VirtualBox forwards to the Docker host port inside the guest VM, not directly to
+the container port. A loopback-only Docker binding in the guest would prevent
+this NAT-forwarded connection from reaching the service.
 
 ### Configure Port Forwarding in VirtualBox
 
@@ -21,7 +30,7 @@ Before your container's service becomes accessible from the LAN, you must set up
   - Host IP: Leave blank
   - Host Port: An unused port on your host machine (e.g., `8080`)
   - Guest IP: Leave blank
-  -  Guest Port: The port the service in the Docker container is running on (e.g., `80`)
+  - Guest Port: The port published on the VM (8080 in this example)
 7. Click OK to close the windows and save the settings.
 
 ### Find Your Host Machine's IP Address
@@ -38,3 +47,5 @@ To make your container accessible on the LAN, you'll need to provide the IP addr
 With the above configurations in place, other devices on your LAN can now access the Docker container using the host machine's IP address and the forwarded port.
 
 For example, if the host machine's IP address is 192.168.1.100 and you forwarded to port 8080, devices on the LAN can access the Docker container's service by navigating to `http://192.168.1.100:8080`.
+
+See the [VirtualBox networking manual](https://docs.oracle.com/en/virtualization/virtualbox/7.2/user/networkingdetails.html) for NAT forwarding and host-interface bindings.

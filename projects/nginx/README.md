@@ -24,19 +24,19 @@ echo "<h1>Welcome to our Nginx Docker Container!</h1>" > index.html
 Now, we'll run an Nginx Docker container and mount our static site to it:
 
 ```bash
-docker run --name nginx_container -p 80:80 -v $(pwd):/usr/share/nginx/html:ro -d nginx:latest
+docker run --name nginx_container -p 127.0.0.1:8080:80 -v "$(pwd):/usr/share/nginx/html:ro" -d nginx:stable-alpine
 ```
 
 - `--name nginx_container`: Names our container "nginx_container" for easy reference.
-- `-p 80:80`: Maps port 80 on the host to port 80 on the container.
-- `-v $(pwd):/usr/share/nginx/html:ro`: This mounts our current directory (which contains our index.html file) to the default Nginx content directory in the container. The :ro at the end ensures the volume is mounted as read-only for safety.
+- `-p 127.0.0.1:8080:80`: Maps local host port 8080 to container port 80.
+- `-v "$(pwd):/usr/share/nginx/html:ro"`: Mounts the current directory at Nginx's content directory. Quoting preserves paths containing spaces; :ro makes the mount read-only.
 
 ### Accessing the Static Site
 
 Once the container is up and running, you can access your static website by navigating to:
 
 ```
-http://localhost
+http://localhost:8080
 ```
 
 You should see a message saying "Welcome to our Nginx Docker Container!"

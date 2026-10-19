@@ -1,40 +1,58 @@
-# Docker
-A comprehensive collection of notes on Docker, designed to help you understand and leverage Docker for containerization and DevOps practices. This repository covers a wide range of topics, from basic concepts to advanced techniques, providing valuable insights and practical examples for both beginners and experienced users.
+# Docker Notes
+
+Notes, hands-on projects, and Python utilities for learning Docker.
+
+## Start Here
+
+1. Read the [introduction](notes/01_intro.md) and [installation guide](notes/02_installation.md).
+2. Practice the [basic commands](notes/03_basic_commands.md), then build the included [Apache website](projects/apache/README.md).
+3. Run the [Flask Compose lab](projects/flask/README.md), then explore [networking](notes/05_networking.md) and [security](notes/06_security.md).
+
+Commands use the Compose plugin syntax, docker compose. Check docker version
+and docker compose version before starting a lab.
 
 ## Notes
 
-| Topic                     | Description                                                                   | Notes                                                                                                     |
-| --------------------------| ------------------------------------------------------------------------------| --------------------------------------------------------------------------------------------------------- |
-| Docker Intro               | An introduction to the basic concepts and components of Docker.                | <a href="https://github.com/djeada/Docker-Notes/blob/main/notes/01_intro.md"><img src="https://img.icons8.com/color/344/markdown.png" height="50" /></a>               |
-| Installation               | Step-by-step guide on how to install Docker on different platforms.           | <a href="https://github.com/djeada/Docker-Notes/blob/main/notes/02_installation.md"><img src="https://img.icons8.com/color/344/markdown.png" height="50" /></a>        |
-| Basic Commands             | Overview of fundamental commands for Docker usage.                            | <a href="https://github.com/djeada/Docker-Notes/blob/main/notes/03_basic_commands.md"><img src="https://img.icons8.com/color/344/markdown.png" height="50" /></a>        |
-| Dockerfile                 | Instructions and best practices for creating Docker images using Dockerfile.   | <a href="https://github.com/djeada/Docker-Notes/blob/main/notes/04_docker_file.md"><img src="https://img.icons8.com/color/344/markdown.png" height="50" /></a>            |
-| Networking                 | Basics of networking within Docker and connecting containers.                  | <a href="https://github.com/djeada/Docker-Notes/blob/main/notes/05_networking.md"><img src="https://img.icons8.com/color/344/markdown.png" height="50" /></a>            |
-| Security                   | Measures and best practices to secure Docker containers and images.            | <a href="https://github.com/djeada/Docker-Notes/blob/main/notes/06_security.md"><img src="https://img.icons8.com/color/344/markdown.png" height="50" /></a>               |
-| Swarm                      | Introduction to Docker Swarm, a native clustering and orchestration tool.      | <a href="https://github.com/djeada/Docker-Notes/blob/main/notes/07_swarm.md"><img src="https://img.icons8.com/color/344/markdown.png" height="50" /></a>                  |
+| Topic | Description |
+|-------|-------------|
+| [Introduction](notes/01_intro.md) | Images, containers, and containerization. |
+| [Installation](notes/02_installation.md) | Platform-specific setup and verification. |
+| [Basic commands](notes/03_basic_commands.md) | Build, run, inspect, persist data, and clean up. |
+| [Dockerfiles](notes/04_docker_file.md) | Build context, caching, runtime commands, and secrets. |
+| [Networking](notes/05_networking.md) | Bridge DNS, namespace sharing, published ports, and Swarm overlays. |
+| [Security](notes/06_security.md) | Daemon access, runtime permissions, images, and secrets. |
+| [Swarm](notes/07_swarm.md) | Nodes, services, managers, and quorum. |
+| [Events](notes/08_docker_events.md) | Live streams, bounded history, and event filters. |
+| [Command reference](notes/all_comands.md) | A compact CLI lookup table. |
 
 ## Projects
 
-| Project           | Description                                                      | Link                                                                                                   |
-| ----------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| MySQL             | A relational database management system (RDBMS) based on SQL.     | <a href="https://github.com/djeada/Docker-Notes/blob/main/projects/mysql/README.md"><img src="https://img.icons8.com/color/344/markdown.png" height="50" /></a> |
-| PostgreSQL        | An advanced open-source relational database management system.    | <a href="https://github.com/djeada/Docker-Notes/blob/main/projects/postgresql/README.md"><img src="https://img.icons8.com/color/344/markdown.png" height="50" /></a> |
-| MongoDB           | A NoSQL database platform for scalable and high-performance needs. | <a href="https://github.com/djeada/Docker-Notes/blob/main/projects/mongodb/README.md"><img src="https://img.icons8.com/color/344/markdown.png" height="50" /></a> |
-| Flask             | A lightweight web framework in Python for building web applications. | <a href="https://github.com/djeada/Docker-Notes/blob/main/projects/flask/README.md"><img src="https://img.icons8.com/color/344/markdown.png" height="50" /></a> |
-| NodeJS            | A runtime environment for executing JavaScript outside of a browser. | <a href="https://github.com/djeada/Docker-Notes/blob/main/projects/nodejs/README.md"><img src="https://img.icons8.com/color/344/markdown.png" height="50" /></a> |
-| VirtualBox Networking | Configuration and management of network settings in VirtualBox. | <a href="https://github.com/djeada/Docker-Notes/blob/main/projects/virtualbox_networking/README.md"><img src="https://img.icons8.com/color/344/markdown.png" height="50" /></a> |
+| Project | Description |
+|---------|-------------|
+| [Apache](projects/apache/README.md) | Build and serve the included static website. |
+| [Flask](projects/flask/README.md) | A runnable app, Dockerfile, health check, and Compose file. |
+| [Nginx](projects/nginx/README.md) | Serve static content from a read-only bind mount. |
+| [Node.js](projects/nodejs/README.md) | An application behind an Nginx reverse proxy. |
+| [MySQL](projects/mysql/README.md) | A local relational database with persistent storage. |
+| [PostgreSQL](projects/postgresql/README.md) | A local database and sample SQL. |
+| [MongoDB](projects/mongodb/README.md) | Document storage and a named data volume. |
+| [VirtualBox networking](projects/networking/virutalbox_lan/README.md) | Publish a VM-hosted container to the LAN. |
 
-## Scripts
+## Scripts and Checks
 
-| Script Name                     | Description                                                                                           | Link                                                                                              |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| docker_image_updater.py         | Script to update Docker images.                                                                       | <a href="https://github.com/djeada/Docker-Notes/blob/main/scripts/docker_image_updater.py"><img src="https://img.icons8.com/color/344/python.png" height="50" /></a> |
-| docker_compose_generator.py     | Generates a `docker-compose` file based on specified parameters.                                      | <a href="https://github.com/djeada/Docker-Notes/blob/main/scripts/docker_compose_generator.py"><img src="https://img.icons8.com/color/344/python.png" height="50" /></a> |
-| image_cleaner.py                | Script to clean up old or unused Docker images.                                                       | <a href="https://github.com/djeada/Docker-Notes/blob/main/scripts/image_cleaner.py"><img src="https://img.icons8.com/color/344/python.png" height="50" /></a> |
-| container_runner.py             | Handles the launching of individual Docker containers.                                                | <a href="https://github.com/djeada/Docker-Notes/blob/main/scripts/container_runner.py"><img src="https://img.icons8.com/color/344/python.png" height="50" /></a> |
-| batch_container_runner.py       | Script designed to run multiple Docker containers in batches.                                          | <a href="https://github.com/djeada/Docker-Notes/blob/main/scripts/batch_container_runner.py"><img src="https://img.icons8.com/color/344/python.png" height="50" /></a> |
-| container_resource_monitor.py   | Monitors and reports on resource usage (like CPU, memory) of running containers.                       | <a href="https://github.com/djeada/Docker-Notes/blob/main/scripts/container_resource_monitor.py"><img src="https://img.icons8.com/color/344/python.png" height="50" /></a> |
+See the [script guide](scripts/README.md) for dependencies, examples, and behavior.
+With Python 3.10 or later, run from the repository root:
 
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m unittest discover -s tests -v
+python -m compileall -q scripts projects/flask tests
+```
+
+The unit tests do not require Docker. CI also validates Compose output and
+builds and serves the Apache and Flask projects.
 
 ## Assessing Your Docker Proficiency
 
@@ -61,7 +79,7 @@ Evaluate your Docker understanding and skills using the following benchmarks:
      - Ensure the usage of secure base images and up-to-date dependencies.
 
 5. **Docker Compose Mastery**:
-   - Create `docker-compose` configurations to manage multiple containerized applications, easing local development and testing setups.
+   - Create `docker compose` configurations to manage multiple containerized applications, easing local development and testing setups.
 
 6. **Docker Networking**:
    - Understand Docker's various networking modes, such as bridge, host, and overlay.
@@ -80,7 +98,6 @@ Evaluate your Docker understanding and skills using the following benchmarks:
    - Get acquainted with other container tools beyond Docker:
      - `buildkit`: A modern approach to building container images.
      - `buildah`: Constructs OCI-compatible container images.
-     - `kaniko`: Constructs container images from a `Dockerfile`, suitable for container or Kubernetes environments.
 
 ## Contributing
 

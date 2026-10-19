@@ -44,7 +44,7 @@ And a `package.json` file:
 For this step, you'll need a Dockerfile:
 
 ```Dockerfile
-FROM node:14
+FROM node:24-slim
 
 WORKDIR /app
 
@@ -78,18 +78,14 @@ server {
 Next, you'll need a `docker-compose.yml` file to orchestrate the Node.js app and the Nginx containers:
 
 ```yaml
-version: '3'
-
 services:
   node_app:
     build: .
-    ports:
-      - "3000:3000"
 
   nginx:
     image: nginx:latest
     ports:
-      - "80:80"
+      - "127.0.0.1:8080:80"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
@@ -101,7 +97,13 @@ services:
 With the files set up, use Docker Compose to deploy both the Node.js app and the Nginx server:
 
 ```bash
-docker-compose up
+docker compose up --build
 ```
 
-After deployment, you can navigate to `http://localhost` in your web browser. You should see the message "Hello from Node.js running in Docker!", served via Nginx.
+Open `http://localhost:8080` to see the Node.js response through Nginx. The app's
+port 3000 is reached by service name on the Compose network and does not need
+publishing on the host. depends_on controls startup order but does not wait for
+HTTP readiness; use health checks and application retries when readiness matters.
+
+Stop the project with `docker compose down`. See [Node.js release support](https://nodejs.org/en/about/previous-releases)
+and [Compose startup order](https://docs.docker.com/compose/how-tos/startup-order/).

@@ -1,53 +1,50 @@
 #!/usr/bin/env python3
+"""Print Linux container CPU/memory percentages every 10 seconds."""
 
-'''
-Usage:
-
-Simply run the script, and it will start monitoring all running Docker containers every 10 seconds. If a container's CPU or memory usage exceeds the thresholds specified in the CPU_THRESHOLD and MEMORY_THRESHOLD variables, an alert will be printed to the console.
-
-python3 container_resource_monitor.py
-'''
-
-import subprocess
-import time
 import json
+import subprocess
+import sys
+import time
+
 
 def get_container_stats():
-    """Get stats of all running containers."""
-    cmd = ["docker", "stats", "--no-stream", "--format", "{{json .}}"]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    lines = result.stdout.strip().split("\n")
+    result = subprocess.run(
+        ["docker", "stats", "--no-stream", "--format", "{{json .}}"],
+        capture_output=True, text=True, check=True,
+    )
+    return [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
 
-    stats = []
-    for line in lines:
-        stats.append(json.loads(line))
-    return stats
+
+def report_stats(stats, cpu_threshold, mem_threshold):
+    for stat in stats:
+        name = stat["Name"]
+        cpu_percent = float(stat["CPUPerc"].removesuffix("%"))
+        # Docker already calculates this percentage. MemUsage can contain
+        # decimals and mixed B/KiB/MiB/GiB units, so do not parse it as integers.
+        mem_percent = float(stat["MemPerc"].removesuffix("%"))
+        print(f"{name} - CPU: {cpu_percent}%, Memory: {mem_percent:.2f}%")
+        if cpu_threshold is not None and cpu_percent > cpu_threshold:
+            print(f"ALERT: {name} has exceeded the CPU threshold!")
+        if mem_threshold is not None and mem_percent > mem_threshold:
+            print(f"ALERT: {name} has exceeded the Memory threshold!")
+
 
 def monitor_containers(cpu_threshold, mem_threshold):
-    """Monitor and log container resources. Alert if thresholds are exceeded."""
     while True:
-        stats = get_container_stats()
-        for stat in stats:
-            name = stat["Name"]
-            cpu_percent = float(stat["CPUPerc"].replace("%", ""))
-            mem_usage_data = stat["MemUsage"].split("/")
-            mem_usage = int(mem_usage_data[0].replace("MiB", "").strip())
-            mem_limit = int(mem_usage_data[1].replace("MiB", "").strip())
-            mem_percent = (mem_usage / mem_limit) * 100
-            
-            print(f"{name} - CPU: {cpu_percent}%, Memory: {mem_percent:.2f}%")
+        report_stats(get_container_stats(), cpu_threshold, mem_threshold)
+        time.sleep(10)
 
-            if cpu_threshold and cpu_percent > cpu_threshold:
-                print(f"ALERT: {name} has exceeded the CPU threshold!")
-            
-            if mem_threshold and mem_percent > mem_threshold:
-                print(f"ALERT: {name} has exceeded the Memory threshold!")
 
-        time.sleep(10)  # Check every 10 seconds. This interval can be adjusted.
+def main():
+    try:
+        monitor_containers(75.0, 80.0)
+    except KeyboardInterrupt:
+        return 0
+    except (OSError, subprocess.CalledProcessError, ValueError, KeyError) as exc:
+        print(f"Unable to monitor Docker containers: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
 
 if __name__ == "__main__":
-    # You can set these thresholds according to your requirements.
-    CPU_THRESHOLD = 75.0  # Alert if CPU usage exceeds 75%
-    MEMORY_THRESHOLD = 80.0  # Alert if memory usage exceeds 80%
-
-    monitor_containers(CPU_THRESHOLD, MEMORY_THRESHOLD)
+    sys.exit(main())

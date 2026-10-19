@@ -46,20 +46,23 @@ The goal of this project is to set up a MySQL database using Docker. This is a b
 Initiate a MySQL container instance. It's handy to name your container, which allows you to refer to it easily later:
 
 ```
-docker run -d --name mysql_container -p 3306:3306 -e MYSQL_ROOT_PASSWORD=secret_pass mysql:latest
+docker run -d --name mysql_container -p 127.0.0.1:3306:3306 \
+  -v mysql-data:/var/lib/mysql -e MYSQL_ROOT_PASSWORD=secret_pass mysql:8.4
 ```
 
 - `--name mysql_container`: Assigns the name "mysql_container" to our container.
-- `-p 3306:3306`: Maps port 3306 on the host to port 3306 on the container.
+- `-p 127.0.0.1:3306:3306`: Publishes MySQL only on the local host.
+- `-v mysql-data:/var/lib/mysql`: Stores database files in a named volume that survives container removal.
 - `-e MYSQL_ROOT_PASSWORD=secret_pass`: Sets the root password for MySQL to "secret_pass".
 
 ### Accessing MySQL Inside the Container
 
-Once the container is running, you can execute commands within:
+Allow initialization to finish; inspect `docker logs mysql_container` for readiness.
+The password is a local exercise value. Use a different credential for real deployments.
+Then open a MySQL client:
 
 ```bash
-docker exec -it mysql_container bash
-mysql -u root -p
+docker exec -it mysql_container mysql -u root -p
 ```
 
 You will be prompted for the password. Enter secret_pass, the password you set during container creation.
@@ -92,3 +95,7 @@ CREATE TABLE IF NOT EXISTS items (
 ```
 
 Now, you have a MySQL container with a sample_db database and an items table. This setup can serve as a starting point for a variety of applications, from web services to data analytics. Adjust the table schemas to fit the specific needs of your projects.
+
+Stop and remove the container with `docker rm -f mysql_container`; the mysql-data
+volume remains. Reuse the same volume to keep data. Initialization environment
+variables apply only to an empty data directory. See the [official image guide](https://hub.docker.com/_/mysql).

@@ -82,17 +82,22 @@ Docker Swarm is Docker's built-in solution for container orchestration, allowing
 
 - **High Availability**: Resilience against node failures.
 - **Scalability**: Adjust services based on demand.
-- **Decentralized Commands**: Any node can accept commands.
+- **Management**: Run node and service management commands against a manager. Workers run tasks but do not perform cluster management.
 - **Built-in Security**: Automatic security certificates for nodes.
 
 ### Challenges
 
 - **Stateful Applications**: Databases and similar apps pose management issues.
 - **Network Overhead**: Overlay networks introduce minor performance overheads.
-- **Manager Nodes**: Odd numbers (3 or 5) are recommended to maintain quorum.
+- **Manager Nodes**: Cluster updates require a majority of managers. Three managers tolerate one manager failure; five tolerate two. Losing quorum prevents management changes even if existing tasks keep running.
 
 ### Best Practices
 
 - **Limit Manager Nodes**: 3 to 5 managers are often enough.
 - **Continuous Monitoring**: Check node health and service distribution regularly.
 - **Backup**: Especially critical for manager nodes housing the swarm state.
+
+### References
+
+- [Swarm administration and quorum](https://docs.docker.com/engine/swarm/admin_guide/)
+- [Overlay networks](https://docs.docker.com/engine/network/drivers/overlay/)

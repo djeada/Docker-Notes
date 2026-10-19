@@ -1,63 +1,45 @@
 #!/usr/bin/env python3
+"""Prune unused images using Docker's reference tracking and confirmation prompt.
 
-'''
-Usage:
+Without --days, remove dangling images. With --days N, remove unused images
+created more than N days ago. Creation age is not time since last use.
+"""
 
-- To remove only the dangling images:
-
-python3 docker_image_cleaner.py
-
-- To remove images that haven't been used for 30 days or more:
-
-python3 docker_image_cleaner.py --days 30
-
-'''
-
-
-import subprocess
 import argparse
-from datetime import datetime, timedelta
+import subprocess
+import sys
 
-def get_dangling_images():
-    """Fetch all dangling images."""
-    cmd = ["docker", "images", "-f", "dangling=true", "-q"]
-    result = subprocess.check_output(cmd)
-    return result.decode('utf-8').splitlines()
 
-def get_old_images(days_old):
-    """Fetch images older than the specified days."""
-    cmd = ["docker", "images", "--format", "{{.ID}} {{.CreatedSince}}"]
-    result = subprocess.check_output(cmd)
-    lines = result.decode('utf-8').splitlines()
+def positive_days(value):
+    days = int(value)
+    if days <= 0:
+        raise argparse.ArgumentTypeError("--days must be a positive integer.")
+    return days
 
-    old_images = []
-    for line in lines:
-        image_id, age = line.split(' ', 1)
-        if "days" in age:
-            num_days = int(age.split(' ')[0])
-            if num_days > days_old:
-                old_images.append(image_id)
-    return old_images
 
-def remove_images(image_list):
-    """Remove Docker images."""
-    if not image_list:
-        print("No images to remove.")
-        return
+def prune_images(days=None, force=False):
+    cmd = ["docker", "image", "prune"]
+    if days is not None:
+        cmd += ["--all", "--filter", f"until={days * 24}h"]
+    if force:
+        cmd.append("--force")
+    subprocess.run(cmd, check=True)
 
-    cmd = ["docker", "rmi", "-f"] + image_list
-    subprocess.run(cmd)
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--days", type=positive_days,
+                        help="Prune unused images created more than this many days ago.")
+    parser.add_argument("--force", action="store_true", help="Skip Docker's confirmation prompt.")
+    args = parser.parse_args(argv)
+    try:
+        prune_images(args.days, args.force)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        print(f"Unable to prune Docker images: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Docker Image Cleaner")
-    parser.add_argument("--days", type=int, default=0,
-                        help="Number of days the image hasn't been used to be considered old. Default is 0 (will not remove based on age).")
-
-    args = parser.parse_args()
-
-    images_to_remove = set(get_dangling_images())
-
-    if args.days > 0:
-        images_to_remove.update(get_old_images(args.days))
-
-    remove_images(list(images_to_remove))
+    sys.exit(main())

@@ -1,0 +1,61 @@
+name: Validate Docker notes and examples
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.15"]
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install -r requirements.txt
+      - run: python -m unittest discover -s tests -v
+      - run: python -m compileall -q scripts projects/flask tests
+
+  docker-examples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.13"
+      - run: python -m pip install -r requirements.txt
+      - name: Validate generated Compose configuration
+        run: |
+          python scripts/docker_compose_generator.py --output /tmp/notes-compose.yaml \
+            --networks appnet --service-name web --service-image nginx:stable-alpine \
+            --service-ports 127.0.0.1:8080:80 --service-name db --service-image mysql:8.4 \
+            --service-env MYSQL_ROOT_PASSWORD:local-demo --service-volumes dbdata:/var/lib/mysql
+          docker compose -f /tmp/notes-compose.yaml config --quiet
+          docker compose -f projects/flask/compose.yaml config --quiet
+      - name: Build and serve Apache and Flask
+        run: |
+          docker build -t docker-notes-apache:ci projects/apache/mywebsite
+          docker run -d --name docker-notes-apache-ci -p 127.0.0.1:18080:80 docker-notes-apache:ci
+          docker compose -p docker-notes-flask-ci -f projects/flask/compose.yaml up --build --wait --wait-timeout 90
+          curl --fail --retry 10 --retry-connrefused --retry-delay 1 http://127.0.0.1:18080/ > /tmp/apache.html
+          curl --fail http://127.0.0.1:18080/styles/style.css > /tmp/apache.css
+          curl --fail http://127.0.0.1:5000/ > /tmp/flask.txt
+          python -c "from pathlib import Path; assert '<html' in Path('/tmp/apache.html').read_text().lower(); assert Path('/tmp/apache.css').stat().st_size > 0; assert Path('/tmp/flask.txt').read_text() == 'Hello from Flask running in Docker!\n'"
+      - name: Show container logs
+        if: failure()
+        run: |
+          docker logs docker-notes-apache-ci || true
+          docker compose -p docker-notes-flask-ci -f projects/flask/compose.yaml logs || true
+      - name: Remove CI resources
+        if: always()
+        run: |
+          docker rm -f docker-notes-apache-ci || true
+          docker compose -p docker-notes-flask-ci -f projects/flask/compose.yaml down --volumes || true

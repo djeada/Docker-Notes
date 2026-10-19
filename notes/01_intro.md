@@ -10,8 +10,8 @@ Docker is a powerful platform that empowers developers to seamlessly create, dep
 ### Fundamental Docker Concepts
 
 - **Image**: Think of an image as a template or a snapshot. It encapsulates everything required for an application to run - code, runtime, system tools, and libraries. It remains immutable, meaning any changes are saved in new layers on top of the base image.
-- **Container**: A container is a live, running instance of an image. It encapsulates the execution environment, ensuring it has everything needed to run the application. Containers can be easily started, paused, stopped, or deleted without affecting other containers.
-- **Dockerfile**: This is essentially a set of instructions telling Docker how to build a specific image. A Dockerfile is scripted in layers, and each command creates a new layer in the image.
+- **Container**: A container is an instance of an image with its own runtime configuration and writable layer. It can be running or stopped. Changes stored only in its writable layer are lost when the container is removed.
+- **Dockerfile**: Instructions for building an image. Filesystem-changing steps create layers; metadata instructions configure the image without necessarily adding filesystem data.
 - **Docker Hub**: Docker Hub is the default public registry for Docker images. Developers can push their custom images to Docker Hub for public or private distribution. It's a centralized platform for collaborating on container-based applications and distributing containerized applications.
 
 ## Quick example
@@ -28,7 +28,7 @@ docker pull hello-world
 
 Upon executing this, Docker will reach out to the Docker Hub, search for the `hello-world` image, and download it locally.
 
-2. Run the Container
+### 2. Run the Container
 
 To run a container from an image, utilize the `docker run` command:
 
@@ -38,7 +38,7 @@ docker run hello-world
 
 This command will initiate a container instance from the hello-world image. If the image isn't available locally, Docker will attempt to pull it from the default registry (Docker Hub). The hello-world container will run, display its message, and then exit.
 
-3. List Running Containers
+### 3. List Running Containers
 
 To view the containers that are currently running on your system, you can use the docker ps command:
 
@@ -65,7 +65,7 @@ This will display a list of all containers, their IDs, status, and other related
 - **Scalability**: Thanks to the lightweight design of containers, Docker can rapidly scale applications up or down depending on the need, making it highly responsive to demand.
 - **Resilience**: Docker's containers are self-contained units, ensuring that a failure in one doesn't impact others. Tools like Docker Swarm or Kubernetes can monitor, auto-restart, or replace failing containers, providing a fault-tolerant system.
 - **Ephemerality**: Docker containers are inherently ephemeral. If a container encounters issues, it can be effortlessly terminated and replaced, ensuring consistent application behavior.
-- **Statelessness**: Docker champions designs where the application's state is kept separate from its operational container, facilitating easier scalability and simplified maintenance.
+- **State**: Containers can run stateful applications. Keep persistent data in volumes or external stores so containers can be replaced independently of that data.
 - **Efficiency**: Through Docker's unique layered filesystem, only the changes or updates to an image are stored, ensuring that storage is used optimally. Shared libraries between containers further optimize storage and memory use.
 
 ## Why Should Backend Engineers Embrace Docker?

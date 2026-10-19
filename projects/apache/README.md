@@ -70,7 +70,7 @@ The goal of this project is to host a static website (comprising HTML, CSS, and 
 - Edit the Dockerfile to use the official Apache image and copy your website files into the image:
 
 ```
-FROM httpd:latest
+FROM httpd:2.4
 
 COPY ./html/ /usr/local/apache2/htdocs/
 ```
@@ -79,7 +79,7 @@ This Dockerfile uses the official Apache (httpd) image as a base and copies the 
 
 ### 3. Build Your Docker Image
 
-- Navigate to your website directory (`cd ~/mywebsite`) in the terminal.
+- Use the included files by navigating to `projects/apache/mywebsite` from the repository root. If you created a separate site, use that site's directory instead.
 - Build your Docker image with the command:
 
 ```
@@ -93,12 +93,22 @@ docker build -t mywebsite .
 - Run a container from your image with the command:
 
 ```
-docker run -dit --name my-apache-app -p 8080:80 mywebsite
+docker run -d --name my-apache-app -p 127.0.0.1:8080:80 mywebsite
 ```
 
 This command starts a container named `my-apache-app`, mapping port 8080 on your host to port 80 in the container.
+
+The binding makes this lab available on the local host. The website is copied into
+the image; this example does not mount a content volume. Rebuild the image and
+recreate the container after changing the HTML files.
 
 ### 5. Access Your Website
 
 - Open a web browser and navigate to `http://localhost:8080`.
 - You should now see your static website served by Apache running in a Docker container.
+
+### 6. Clean Up
+
+```bash
+docker rm -f my-apache-app
+```
