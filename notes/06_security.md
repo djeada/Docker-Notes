@@ -1,139 +1,96 @@
-## Docker Security
+# Docker Security
 
-Containers feel like neat little sandboxes, yet they still share the host kernel. That subtle detail means a mis-configured image can claw its way out, so defence in depth becomes essential rather than optional. A handy mental model is the classic risk equation \$R = L \times I\$, where \$L\$ represents the likelihood of compromise and \$I\$ the impact; our goal is to drive either factor—preferably both—toward zero through layered safeguards.
+Linux containers share a kernel. Namespace isolation and resource controls help
+separate workloads, but daemon access, capabilities, mounts, and host configuration
+determine what a container can do.
 
-```
-+--------------------+
-|  Application code  |
-+--------------------+
-|   Container image  |
-+--------------------+
-| Namespaces/Cgroups |
-+--------------------+
-|     Host kernel    |
-+--------------------+
-|     Hardware       |
-+--------------------+
-```
+## Daemon and host access
 
-Even though each box looks isolated, a vulnerability in any layer can pierce everything beneath it, which is why attention to detail pays dividends.
+Use rootless Docker where it fits the workload, and retain the engine's default
+seccomp profile and the host's supported AppArmor or SELinux policy. Rootless
+mode runs the daemon and containers without host root; user-namespace remapping
+is a different configuration for a rootful daemon.
 
-## Hardening the host and daemon
-
-Before tweaking container flags, start by reducing the daemon’s own attack surface. Running the engine as a **rootless** service stops most privilege-escalation tricks in their tracks. Mapping UIDs with `--userns-remap` or installing Docker in rootless mode keeps file ownership tidy and obstructs host-level write attempts. Seccomp, AppArmor, and SELinux profiles form the next barrier, blocking dangerous syscalls or filesystem paths even if a process gains extra tokens. Docker 25.0 refreshes the built-in seccomp profile to cover Linux 6 .x syscalls, closing gaps that had opened as kernels evolved. ([Docker Documentation][1])
+Control of a rootful Docker socket normally gives root-level control of its host.
+A socket-mounted helper is therefore not an isolation boundary. Keep the
+[local container-runner demo](../scripts/README.md) on loopback; its caller can
+ask Docker to start processes, so it is not a public application endpoint.
 
 ```bash
 docker info --format '{{json .SecurityOptions}}'
 ```
 
-```
-["name=seccomp,profile=default","name=apparmor","name=selinux"]
-```
+The reported options depend on the host. AppArmor and SELinux are platform
+choices, not two policies every installation must enable simultaneously.
 
-Listing active security options quickly shows whether the daemon is enforcing policies; an empty array would suggest that seccomp or AppArmor never loaded, which is a red flag.
+## Runtime permissions
 
-### Seccomp, AppArmor, SELinux quick reference
+| Option | Purpose |
+|--------|---------|
+| --user UID:GID | Select a non-root container identity when the image supports it. |
+| --cap-drop ALL | Remove Linux capabilities; add back only those the workload requires. |
+| --security-opt no-new-privileges=true | Prevent exec-time privilege gain through setuid/setgid or file capabilities. |
+| --read-only | Make the container root filesystem read-only. |
+| --tmpfs /tmp | Supply a writable temporary filesystem for software that needs it. |
+| --memory and --cpus | Bound resource use. |
 
-| Mechanism | What it does                                        | Typical tuning method                   |
-| --------- | --------------------------------------------------- | --------------------------------------- |
-| Seccomp   | Filters individual syscalls                         | `--security-opt seccomp=profile.json`   |
-| AppArmor  | Restricts file and network access by path           | `--security-opt apparmor=myprofile`     |
-| SELinux   | Labels processes and resources with mandatory rules | `--security-opt label:type:container_t` |
-
-Combining the three feels like placing lock, bar and alarm on the same door: redundant yet reassuring.
-
-## Image provenance and supply-chain integrity
-
-Images downloaded straight from the internet resemble unsigned email attachments. Content Trust uses Notary signatures to guarantee an image’s digest, while Software Bills of Materials (SBOMs) document every package inside for later scanning. The CLI now ships with `docker sbom`, powered by Syft, so generating an SPDX or CycloneDX document is as simple as one command. ([Anchore][2]) BuildKit can even embed the SBOM during `docker buildx build --sbom=true`, creating a tamper-evident trail from source to registry. ([Docker][3])
+The Flask lab already sets a non-root USER. After building its image, try:
 
 ```bash
-docker sbom alpine:3.20
+docker run --rm --cap-drop ALL \
+  --security-opt no-new-privileges=true \
+  --read-only --tmpfs /tmp:size=64m \
+  --memory 256m --cpus 1 \
+  --publish 127.0.0.1:5000:5000 docker-notes-flask
 ```
 
-```
-Syft v0.90.0
+Whether an image works with a read-only root depends on its write paths. PID 1
+has signal-handling responsibilities; its PID alone does not grant root privileges.
 
- ✔ Loaded image
- ✔ Parsed image
- ✔ Cataloged packages      [111 packages]
+## Images and build inputs
 
-alpine:3.20 (docker-img)
-├── musl@1.2.5-r1
-├── busybox@1.36.1-r0
-└── ...
-```
+Use maintained base images, review dependencies, and rebuild as fixes become
+available. Tags can change; digests identify exact image content. An SBOM
+describes components but does not itself prove authenticity or absence of
+vulnerabilities. Verification requires a trusted source and an explicit
+verification policy.
 
-The command surfaces every library in the image, which feeds neatly into vulnerability scanners or compliance reports.
+BuildKit can attach SBOM attestations to an image pushed to a registry you
+control:
 
 ```bash
-docker buildx build --sbom=true -t myorg/web:1.0 --push .
+docker buildx build --sbom=true --tag YOUR_REGISTRY/YOUR_IMAGE:TAG --push .
 ```
 
-```
-#5 exporting to image
-#5 exporting layers
-#5 exporting SBOM
-#5 pushing layers 7.1s done
-```
+SBOM generation and image scanning tools are additional capabilities; a bare
+Docker CLI does not guarantee that a docker sbom command is installed.
 
-Confirming that the build pipeline pushed an SBOM alongside the layers means any downstream consumer can verify contents without rebuilding.
+## Networks and secrets
 
-## Runtime least-privilege patterns
+Publish only the ports the application needs. Use loopback bindings for local
+labs. User-defined networks separate unrelated stacks by default, but services
+sharing a network can reach each other's listening ports.
 
-Running as PID 1 inside a container grants no special capability by default, yet many images pile on extras they never use. Dropping everything with `--cap-drop ALL` and then selectively re-adding, or running with a read-only filesystem, turns potential exploits into harmless log entries.
+Swarm encrypts management traffic. Overlay application traffic needs
+--opt encrypted to enable data-plane encryption. Application TLS is a separate
+decision.
 
-| Flag                  | Purpose                                 | Default                  |
-| --------------------- | --------------------------------------- | ------------------------ |
-| `--cap-drop`          | Remove one or more Linux capabilities   | None dropped             |
-| `--cap-add`           | Add capabilities back selectively       | Inherited from base list |
-| `--read-only`         | Mount root filesystem as read-only      | Read–write               |
-| `--no-new-privileges` | Block `setuid` binaries from escalating | Off                      |
+Swarm secrets are distributed to authorized services and mounted in memory for
+Linux containers. Local Compose file-backed secrets are mounted from host files;
+they do not provide the same encrypted Swarm distribution and storage guarantees.
+Do not commit the source secret file. ENV and build arguments are visible to
+users with suitable image/daemon access and are not secret stores.
 
-```bash
-docker run --cap-drop ALL --read-only -d nginx:alpine
-```
+## Observability
 
-```
-Unable to update /var/cache/nginx: Read-only file system
-```
+Use [Docker events](08_docker_events.md) alongside application and host logs.
+The event stream has limited history and does not reliably identify the human
+behind every action; it is not a complete audit trail.
 
-The warning reminds you that health checks writing to disk will fail, prompting either a writable volume mount or a stateless check; that awareness stops surprises in production.
+## References
 
-## Network boundaries and secrets
-
-User-defined bridge networks isolate containers at the virtual switch, acting like private VLANs on the same host. Overlay networks stretch that idea across Swarm nodes and encrypt traffic in transit. Secrets, introduced in Swarm and mirrored in Docker Compose v3, stay in tmpfs and never touch the image layers, preventing accidental pushes of API keys.
-
-```bash
-docker network inspect app_net --format '{{json .IPAM.Config}}'
-```
-
-```
-[{"Subnet":"172.18.0.0/16","Gateway":"172.18.0.1"}]
-```
-
-Verifying CIDR ranges avoids collisions with corporate networks, a subtle cause of connectivity failures that masquerade as security blocks.
-
-## Auditing, monitoring and incident response
-
-The `docker events` stream covered earlier doubles as an audit bus: every exec, attach, pull and push lands there. Feeding that stream into SIEM tooling satisfies “who did what, when” clauses in many compliance frameworks. Pair it with machine-readable SBOMs and CVE feeds, and you end up with real-time guardrails instead of quarterly checkbox exercises.
-
-```bash
-docker events --filter event=exec_create --since 24h
-```
-
-```
-2025-05-04T06:17:21Z container exec_create  cmd=["/bin/sh"]
-```
-
-Interpretation: spotting unexpected `exec` attempts outside maintenance windows could indicate lateral movement by an attacker or a misfired automation script.
-
-## Quick checklist for everyday hardening
-
-Thinking shorter thoughts during a deploy often prevents longer nights during an incident.
-
-* Confirm the daemon runs in rootless or user-namespace mode.
-* Enable the default seccomp profile and load AppArmor or SELinux on boot.
-* Sign images with Content Trust and attach an SBOM before pushing to the registry.
-* Run containers as non-root users, drop unused capabilities, mount filesystems read-only when possible.
-* Place services on least-exposed networks, publish only required ports and use TLS proxies for external traffic.
-* Stream `docker events` into your logging pipeline and alert on unusual actions.
+- [Docker Engine security](https://docs.docker.com/engine/security/)
+- [Rootless mode](https://docs.docker.com/engine/security/rootless/)
+- [Swarm secrets](https://docs.docker.com/engine/swarm/secrets/)
+- [Compose secrets](https://docs.docker.com/compose/how-tos/use-secrets/)
+- [SBOM attestations](https://docs.docker.com/build/metadata/attestations/sbom/)

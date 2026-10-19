@@ -27,7 +27,7 @@ To set up and run a MongoDB database using Docker. This project aims to introduc
 |  +--------------------+  |
 |  | Docker             |  |
 |  | +-----------+      |  |       +--------------------------------+
-|  | | MySQL     |<--------------->| SQL Management Tool            |
+|  | | MongoDB   |<--------------->| MongoDB Client                 |
 |  | | Container |      |  |       | (Accessing & Managing Database)|
 |  | +-----------+      |  |       +--------------------------------+
 |  |       ^            |  |
@@ -57,14 +57,16 @@ docker pull mongo
 Start a MongoDB container with a specified data volume for data persistence:
 
 ```bash
-docker run --name mongodb-container -d -v mongodb-data:/data/db -p 27017:27017 mongo
+docker run --name mongodb-container -d -v mongodb-data:/data/db -p 127.0.0.1:27017:27017 mongo
 ```
 
 This command runs MongoDB in a container named `mongodb-container`, mapping port 27017 on your host to the container. It also creates a volume named `mongodb-data` for persisting data.
 
 3. **Interact with MongoDB**
 
-Connect to the MongoDB server using a MongoDB client like MongoDB Compass or the Mongo shell. For MongoDB Compass, connect using `localhost:27017` with no authentication for simplicity.
+This local-only exercise does not enable authentication. Connect with MongoDB
+Compass using `mongodb://127.0.0.1:27017`, or run `docker exec -it mongodb-container mongosh`.
+Configure authentication before allowing other machines to access the database.
 
 4. **Basic CRUD Operations**
 

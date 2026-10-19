@@ -1,98 +1,58 @@
-## Installing Docker on Debian-based Systems
+# Installing Docker
 
-Before diving into the installation process, it's worth noting that this guide specifically caters to Debian-based distributions like Ubuntu. By following these steps, you can ensure a clean and effective installation of Docker.
+Choose the instructions for your actual operating system and supported release.
+Ubuntu and Debian use different package repositories; Ubuntu's repository is not
+a general installation source for all Debian-based distributions.
 
-### Remove Old Docker Versions
+| Platform | Official instructions |
+|----------|-----------------------|
+| Ubuntu | [Install Docker Engine on Ubuntu](https://docs.docker.com/engine/install/ubuntu/) |
+| Debian | [Install Docker Engine on Debian](https://docs.docker.com/engine/install/debian/) |
+| Windows | [Install Docker Desktop on Windows](https://docs.docker.com/desktop/setup/install/windows-install/) |
+| macOS | [Install Docker Desktop on Mac](https://docs.docker.com/desktop/setup/install/mac-install/) |
 
-First, it's a good idea to remove any older versions of Docker that might exist on your system to avoid conflicts.
+## Linux
 
-```bash
-sudo apt remove docker docker-engine docker.io containerd runc
-```
-
-### Install Prerequisites
-
-Update the package database and install essential packages required for Docker's installation.
-
-```bash
-sudo apt update
-sudo apt install ca-certificates curl gnupg lsb-release
-```
-
-### Add Docker’s Official GPG Key
-
-The GPG key is essential for ensuring the integrity and authenticity of the Docker packages.
-
-```bash
-sudo mkdir -p /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-```
-
-### Set Up the Docker Repository
-
-Add the Docker repository to your APT sources:
-
-```bash
-echo \
-"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-$(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-```
-
-### Install Docker Engine
-
-With the repository in place, you can now install the Docker engine, CLI tools, and related packages.
+Follow the matching guide to check supported versions, remove conflicting packages,
+configure Docker's signing key, and add the correct repository. After configuring
+the official Ubuntu or Debian repository, install the engine and CLI plugins:
 
 ```bash
 sudo apt update
-sudo apt install docker-ce docker-ce-cli containerd.io docker-compose-plugin
+sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo docker run --rm hello-world
 ```
 
-### Verify Installation
+Use the [Linux post-installation guide](https://docs.docker.com/engine/install/linux-postinstall/)
+or [rootless mode](https://docs.docker.com/engine/security/rootless/) to configure
+access. Membership in the docker group grants control of the daemon and normally
+root-level power over a rootful Docker host.
 
-It's a good practice to verify that Docker was installed correctly. Run the hello-world image, and if everything is set up correctly, you'll see a message indicating that Docker is running.
+## Windows and macOS
+
+Install Docker Desktop using the platform guide above and start it before running
+commands. On Windows, follow the current WSL 2 and virtualization requirements.
+Windows Home can run Linux containers through WSL 2; Windows containers have
+different edition and backend requirements.
+
+## Verify the client, server, and plugins
 
 ```bash
-sudo docker run hello-world
+docker version
+docker info
+docker buildx version
+docker compose version
+docker run --rm hello-world
 ```
 
-## Installing Docker on Windows
-
-Docker Desktop for Windows is the preferred choice for running Docker on Windows 10 and Windows 11. It integrates seamlessly with the OS and offers a comprehensive GUI for managing containers. This guide will walk you through the steps to install Docker Desktop on Windows.
-
-### Prerequisites:
-
-- **Windows 10 Pro, Enterprise, or Education** (64-bit). For Windows Home, ensure that you have Windows Subsystem for Linux 2 (WSL 2) installed.
-- **Virtualization technology**: Ensure virtualization is enabled in your BIOS/UEFI settings.
-
-### Download Docker Desktop
-
-Navigate to the official [Docker Desktop page](https://www.docker.com/products/docker-desktop) and download the installer for Windows.
-
-### Install Docker Desktop
-
-1. Run the installer you downloaded.
-2. Follow the installation instructions and accept the terms.
-3. Choose whether to use WSL 2 based engine (recommended) or Hyper-V. If you're using Windows Home, you'll need to use WSL 2.
-4. Click "Install."
-
-### Start Docker Desktop
-
-After installation, Docker Desktop will start automatically. You'll see the Docker icon in your system tray indicating that Docker is running.
-
-### Verify Installation
-
-Open a command prompt or PowerShell window and run:
+A client version alone does not prove the daemon is reachable. If docker info
+fails, check that Docker Desktop or the engine service is running and that your
+selected context and permissions are correct:
 
 ```bash
-docker --version
+docker context ls
+docker context show
 ```
 
-This should display the version of Docker installed on your system.
-
-To test the Docker installation, you can run the `hello-world` container:
-
-```bash
-docker run hello-world
-```
-
-If everything works correctly, you'll see a message from Docker confirming your successful setup.
+These notes use the Compose plugin command, docker compose. The older standalone
+docker-compose executable is not required.
